@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>田畑式タイマー</title>
+<meta name="theme-color" content="#e11d48">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tabata">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   :root {
     --bg: #f4f5f7; --fg: #1b1f24; --card: #fff; --muted: #6b7280;
@@ -14,7 +22,8 @@
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    margin: 0; min-height: 100vh; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; align-items: center;
     background: var(--bg); color: var(--fg);
     font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", sans-serif;
   }
@@ -42,7 +51,7 @@
   button.sub { background: var(--card); color: var(--fg); border: 1px solid var(--muted); }
   .settings { background: var(--card); border-radius: 16px; padding: 12px 16px; display: grid; grid-template-columns: 1fr auto; gap: 10px 12px; align-items: center; }
   .settings label { color: var(--muted); font-size: .9rem; }
-  .settings input { width: 80px; padding: 8px; font-size: 1rem; text-align: right; border-radius: 8px; border: 1px solid var(--muted); background: var(--bg); color: var(--fg); }
+  .settings input { width: 80px; padding: 8px; font-size: 16px; text-align: right; border-radius: 8px; border: 1px solid var(--muted); background: var(--bg); color: var(--fg); }
   p.note { color: var(--muted); font-size: .8rem; text-align: center; }
 </style>
 </head>
@@ -182,6 +191,7 @@
     idx = -1;
   }
 
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   document.addEventListener("visibilitychange", () => { if (running && !document.hidden) lock(); });
   startBtn.addEventListener("click", start);
   resetBtn.addEventListener("click", reset);
