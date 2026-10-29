@@ -105,9 +105,22 @@
     seq.rounds = rounds;
   }
 
+  // タップ操作の中で呼ぶ。スマホは操作内でresumeしないと音が出ない
+  function unlockAudio() {
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = "playback"; // iOS: マナーモードでも鳴らす
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state !== "running") audio.resume();
+      const b = audio.createBuffer(1, 1, 22050), s = audio.createBufferSource();
+      s.buffer = b; s.connect(audio.destination); s.start(0);
+    } catch (e) {}
+  }
+
   function beep(freq, ms) {
     try {
+      if (navigator.vibrate) navigator.vibrate(Math.min(ms, 200));
       audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state !== "running") audio.resume();
       const o = audio.createOscillator(), g = audio.createGain();
       o.frequency.value = freq; o.type = "sine";
       g.gain.setValueAtTime(.3, audio.currentTime);
@@ -169,6 +182,7 @@
   function stop() { clearInterval(timer); timer = null; running = false; unlock(); }
 
   function start() {
+    unlockAudio();
     if (running) { // pause
       remainingMs = phaseEnd - performance.now();
       stop(); startBtn.textContent = "再開"; return;
@@ -192,7 +206,7 @@
   }
 
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
-  document.addEventListener("visibilitychange", () => { if (running && !document.hidden) lock(); });
+  document.addEventListener("visibilitychange", () => { if (running && !document.hidden) { lock(); if (audio && audio.state !== "running") audio.resume(); } });
   startBtn.addEventListener("click", start);
   resetBtn.addEventListener("click", reset);
   Object.values(inputs).forEach(el => el.addEventListener("change", () => { if (!running) reset(); }));
