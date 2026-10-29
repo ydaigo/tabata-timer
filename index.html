@@ -105,8 +105,25 @@
     seq.rounds = rounds;
   }
 
+  // 無音WAVをループ再生すると、iOSがメディア再生扱いにしてマナーモードでもWebAudioが鳴る
+  let silentEl = null;
+  function silentWav() {
+    const n = 8000, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+    const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVEfmt ");
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+    w(36, "data"); v.setUint32(40, n, true);
+    new Uint8Array(buf, 44).fill(128);
+    return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+  }
+
   // タップ操作の中で呼ぶ。スマホは操作内でresumeしないと音が出ない
   function unlockAudio() {
+    try {
+      if (!silentEl) { silentEl = new Audio(silentWav()); silentEl.loop = true; silentEl.setAttribute("playsinline", ""); }
+      silentEl.play().catch(() => {});
+    } catch (e) {}
     try {
       if (navigator.audioSession) navigator.audioSession.type = "playback"; // iOS: マナーモードでも鳴らす
       audio = audio || new (window.AudioContext || window.webkitAudioContext)();
