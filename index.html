@@ -61,8 +61,8 @@
 
   <section class="stage" id="stage" data-phase="idle">
     <div id="label">READY</div>
-    <div id="time">20</div>
-    <div id="round">20秒運動 / 10秒休憩 × 8ラウンド</div>
+    <div id="time">50</div>
+    <div id="round">50秒運動 / 10秒休憩 × 3ラウンド</div>
     <div class="bar"><i id="fill"></i></div>
   </section>
 
@@ -72,12 +72,12 @@
   </div>
 
   <section class="settings">
-    <label for="prepSec">準備(秒)</label><input id="prepSec" type="number" min="0" max="60" value="10">
-    <label for="workSec">運動(秒)</label><input id="workSec" type="number" min="1" max="600" value="20">
+    <label for="prepSec">準備(秒)</label><input id="prepSec" type="number" min="0" max="60" value="5">
+    <label for="workSec">運動(秒)</label><input id="workSec" type="number" min="1" max="600" value="50">
     <label for="restSec">休憩(秒)</label><input id="restSec" type="number" min="0" max="600" value="10">
-    <label for="rounds">ラウンド数</label><input id="rounds" type="number" min="1" max="99" value="8">
+    <label for="rounds">ラウンド数</label><input id="rounds" type="number" min="1" max="99" value="3">
   </section>
-  <p class="note">標準の田畑式は 20秒全力 + 10秒休憩 を8セット(合計4分)。音が出ます。</p>
+  <p class="note">初期設定は 準備5秒 + 50秒運動 / 10秒休憩 × 3ラウンド。音が出ます。</p>
 </main>
 
 <script>
