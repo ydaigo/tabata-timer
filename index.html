@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>田畑式タイマー</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --fg: #1b1f24; --card: #fff; --muted: #6b7280;
+    --prep: #f59e0b; --work: #e11d48; --rest: #2563eb; --done: #16a34a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111418; --fg: #f1f3f5; --card: #1c2128; --muted: #9aa4b2; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    background: var(--bg); color: var(--fg);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  }
+  main { width: 100%; max-width: 480px; padding: 16px; }
+  h1 { font-size: 1.1rem; text-align: center; margin: 8px 0 16px; }
+  .stage {
+    --c: var(--prep);
+    background: var(--c); color: #fff; border-radius: 20px; padding: 24px 16px;
+    text-align: center; transition: background .25s;
+  }
+  .stage[data-phase="work"] { --c: var(--work); }
+  .stage[data-phase="rest"] { --c: var(--rest); }
+  .stage[data-phase="done"] { --c: var(--done); }
+  .stage[data-phase="idle"] { --c: #6b7280; }
+  #label { font-size: 1.6rem; font-weight: 700; letter-spacing: .1em; }
+  #time { font-size: clamp(5rem, 28vw, 8rem); font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  #round { font-size: 1.1rem; opacity: .95; }
+  .bar { height: 8px; background: rgba(255,255,255,.3); border-radius: 4px; margin-top: 16px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: #fff; }
+  .controls { display: flex; gap: 8px; margin: 16px 0; }
+  button {
+    flex: 1; padding: 14px; font-size: 1rem; font-weight: 700; border: 0; border-radius: 12px;
+    background: var(--fg); color: var(--bg); cursor: pointer;
+  }
+  button.sub { background: var(--card); color: var(--fg); border: 1px solid var(--muted); }
+  .settings { background: var(--card); border-radius: 16px; padding: 12px 16px; display: grid; grid-template-columns: 1fr auto; gap: 10px 12px; align-items: center; }
+  .settings label { color: var(--muted); font-size: .9rem; }
+  .settings input { width: 80px; padding: 8px; font-size: 1rem; text-align: right; border-radius: 8px; border: 1px solid var(--muted); background: var(--bg); color: var(--fg); }
+  p.note { color: var(--muted); font-size: .8rem; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>田畑式タイマー(Tabata)</h1>
+
+  <section class="stage" id="stage" data-phase="idle">
+    <div id="label">READY</div>
+    <div id="time">20</div>
+    <div id="round">20秒運動 / 10秒休憩 × 8ラウンド</div>
+    <div class="bar"><i id="fill"></i></div>
+  </section>
+
+  <div class="controls">
+    <button id="start">スタート</button>
+    <button id="reset" class="sub">リセット</button>
+  </div>
+
+  <section class="settings">
+    <label for="prepSec">準備(秒)</label><input id="prepSec" type="number" min="0" max="60" value="10">
+    <label for="workSec">運動(秒)</label><input id="workSec" type="number" min="1" max="600" value="20">
+    <label for="restSec">休憩(秒)</label><input id="restSec" type="number" min="0" max="600" value="10">
+    <label for="rounds">ラウンド数</label><input id="rounds" type="number" min="1" max="99" value="8">
+  </section>
+  <p class="note">標準の田畑式は 20秒全力 + 10秒休憩 を8セット(合計4分)。音が出ます。</p>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const stage = $("stage"), label = $("label"), timeEl = $("time"), roundEl = $("round"), fill = $("fill");
+  const startBtn = $("start"), resetBtn = $("reset");
+  const inputs = { prep: $("prepSec"), work: $("workSec"), rest: $("restSec"), rounds: $("rounds") };
+  const LABELS = { prep: "PREPARE", work: "WORK!", rest: "REST", done: "FINISH", idle: "READY" };
+
+  let seq = [], idx = 0, phaseEnd = 0, remainingMs = 0, timer = null, running = false, lastShown = null;
+  let audio = null, wakeLock = null;
+
+  const val = (el, min, max) => Math.min(max, Math.max(min, parseInt(el.value, 10) || 0));
+
+  function build() {
+    const prep = val(inputs.prep, 0, 60), work = val(inputs.work, 1, 600),
+          rest = val(inputs.rest, 0, 600), rounds = val(inputs.rounds, 1, 99);
+    seq = [];
+    if (prep) seq.push({ type: "prep", sec: prep, round: 0 });
+    for (let r = 1; r <= rounds; r++) {
+      seq.push({ type: "work", sec: work, round: r });
+      if (rest && r < rounds) seq.push({ type: "rest", sec: rest, round: r });
+    }
+    seq.rounds = rounds;
+  }
+
+  function beep(freq, ms) {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.frequency.value = freq; o.type = "sine";
+      g.gain.setValueAtTime(.3, audio.currentTime);
+      g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + ms / 1000);
+      o.connect(g).connect(audio.destination);
+      o.start(); o.stop(audio.currentTime + ms / 1000);
+    } catch (e) {}
+  }
+
+  function render(ms) {
+    const p = seq[idx];
+    const secs = Math.ceil(ms / 1000);
+    timeEl.textContent = secs;
+    fill.style.width = (100 - ms / (p.sec * 1000) * 100) + "%";
+    if (secs !== lastShown) {
+      lastShown = secs;
+      if (secs > 0 && secs <= 3) beep(660, 120);
+    }
+  }
+
+  function showPhase() {
+    const p = seq[idx];
+    stage.dataset.phase = p.type;
+    label.textContent = LABELS[p.type];
+    roundEl.textContent = p.type === "prep" ? "まもなく開始" : `ラウンド ${p.round} / ${seq.rounds}`;
+    lastShown = null;
+    beep(p.type === "work" ? 1000 : 500, 400);
+  }
+
+  function tick() {
+    let ms = phaseEnd - performance.now();
+    while (ms <= 0) {
+      idx++;
+      if (idx >= seq.length) return finish();
+      showPhase();
+      phaseEnd += seq[idx].sec * 1000;
+      ms = phaseEnd - performance.now();
+    }
+    render(ms);
+  }
+
+  function finish() {
+    stop();
+    stage.dataset.phase = "done";
+    label.textContent = LABELS.done;
+    timeEl.textContent = "0";
+    roundEl.textContent = "おつかれさまでした!";
+    fill.style.width = "100%";
+    beep(1200, 200); setTimeout(() => beep(1200, 200), 300); setTimeout(() => beep(1500, 500), 600);
+    startBtn.textContent = "もう一度";
+    idx = -1;
+  }
+
+  async function lock() {
+    try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+  }
+  function unlock() { try { wakeLock && wakeLock.release(); } catch (e) {} wakeLock = null; }
+
+  function stop() { clearInterval(timer); timer = null; running = false; unlock(); }
+
+  function start() {
+    if (running) { // pause
+      remainingMs = phaseEnd - performance.now();
+      stop(); startBtn.textContent = "再開"; return;
+    }
+    if (idx < 0 || !seq.length || stage.dataset.phase === "idle") {
+      build(); idx = 0; showPhase(); remainingMs = seq[0].sec * 1000;
+    }
+    phaseEnd = performance.now() + remainingMs;
+    running = true; lock();
+    timer = setInterval(tick, 100); tick();
+    startBtn.textContent = "一時停止";
+  }
+
+  function reset() {
+    stop(); build(); idx = 0; remainingMs = 0;
+    stage.dataset.phase = "idle"; label.textContent = LABELS.idle;
+    timeEl.textContent = val(inputs.work, 1, 600);
+    roundEl.textContent = `${val(inputs.work,1,600)}秒運動 / ${val(inputs.rest,0,600)}秒休憩 × ${val(inputs.rounds,1,99)}ラウンド`;
+    fill.style.width = "0"; startBtn.textContent = "スタート";
+    idx = -1;
+  }
+
+  document.addEventListener("visibilitychange", () => { if (running && !document.hidden) lock(); });
+  startBtn.addEventListener("click", start);
+  resetBtn.addEventListener("click", reset);
+  Object.values(inputs).forEach(el => el.addEventListener("change", () => { if (!running) reset(); }));
+  reset();
+})();
+</script>
+</body>
+</html>
