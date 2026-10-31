@@ -72,10 +72,10 @@
   </div>
 
   <section class="settings">
-    <label for="prepSec">準備(秒)</label><input id="prepSec" type="number" min="0" max="60" value="5">
-    <label for="workSec">運動(秒)</label><input id="workSec" type="number" min="1" max="600" value="50">
-    <label for="restSec">休憩(秒)</label><input id="restSec" type="number" min="0" max="600" value="10">
-    <label for="rounds">ラウンド数</label><input id="rounds" type="number" min="1" max="99" value="5">
+    <label for="prepSec">準備(秒)</label><input id="prepSec" type="number" min="0" max="60" value="5" autocomplete="off">
+    <label for="workSec">運動(秒)</label><input id="workSec" type="number" min="1" max="600" value="50" autocomplete="off">
+    <label for="restSec">休憩(秒)</label><input id="restSec" type="number" min="0" max="600" value="10" autocomplete="off">
+    <label for="rounds">ラウンド数</label><input id="rounds" type="number" min="1" max="99" value="5" autocomplete="off">
   </section>
   <p class="note">初期設定は 準備5秒 + 50秒運動 / 10秒休憩 × 5ラウンド。設定はこの端末に保存されます。音が出ます。</p>
 </main>
@@ -93,19 +93,21 @@
 
   const val = (el, min, max) => Math.min(max, Math.max(min, parseInt(el.value, 10) || 0));
 
-  // 設定はクッキーに1年保存する
-  const COOKIE = "tabata";
+  // 設定はクッキーに1年保存する。既定値はこちらが正
+  const DEFAULTS = { prep: 5, work: 50, rest: 10, rounds: 5 };
+  const COOKIE = "tabata2";
   function saveSettings() {
     const data = { prep: inputs.prep.value, work: inputs.work.value, rest: inputs.rest.value, rounds: inputs.rounds.value };
     document.cookie = COOKIE + "=" + encodeURIComponent(JSON.stringify(data)) + ";max-age=31536000;path=/;SameSite=Lax";
   }
   function loadSettings() {
     const hit = document.cookie.split("; ").find(c => c.startsWith(COOKIE + "="));
-    if (!hit) return;
+    let data = {};
     try {
-      const data = JSON.parse(decodeURIComponent(hit.slice(COOKIE.length + 1)));
-      Object.keys(inputs).forEach(k => { if (data[k] != null) inputs[k].value = data[k]; });
+      if (hit) data = JSON.parse(decodeURIComponent(hit.slice(COOKIE.length + 1)));
     } catch (e) {}
+    // ブラウザが前回の入力値を復元することがあるので、必ず上書きする
+    Object.keys(inputs).forEach(k => { inputs[k].value = data[k] != null ? data[k] : DEFAULTS[k]; });
   }
 
   function build() {
