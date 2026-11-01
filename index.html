@@ -157,10 +157,13 @@
       if (audio.state !== "running") audio.resume();
       const o = audio.createOscillator(), g = audio.createGain();
       o.frequency.value = freq; o.type = "square"; // 倍音を含めて小型スピーカーでも抜けやすく
-      g.gain.setValueAtTime(.22, audio.currentTime);
-      g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + ms / 1000);
+      const t = audio.currentTime, dur = ms / 1000;
+      g.gain.setValueAtTime(.001, t);
+      g.gain.exponentialRampToValueAtTime(.22, t + .005); // 立ち上がりのプチッという音を防ぐ
+      g.gain.setValueAtTime(.22, t + dur * .7);           // 減衰は終盤だけ。短い音が痩せないように
+      g.gain.exponentialRampToValueAtTime(.001, t + dur);
       o.connect(g).connect(audio.destination);
-      o.start(); o.stop(audio.currentTime + ms / 1000);
+      o.start(); o.stop(t + dur);
     } catch (e) {}
   }
 
@@ -171,7 +174,7 @@
     fill.style.width = (100 - ms / (p.sec * 1000) * 100) + "%";
     if (secs !== lastShown) {
       lastShown = secs;
-      if (secs > 0 && secs <= 3) beep(1760, 120);
+      if (secs > 0 && secs <= 3) beep(2640, 200); // ワーク開始と同じ高さ。長さ(200ms対400ms)で区別
     }
   }
 
