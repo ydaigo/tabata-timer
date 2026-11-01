@@ -156,8 +156,8 @@
       audio = audio || new (window.AudioContext || window.webkitAudioContext)();
       if (audio.state !== "running") audio.resume();
       const o = audio.createOscillator(), g = audio.createGain();
-      o.frequency.value = freq; o.type = "sine";
-      g.gain.setValueAtTime(.3, audio.currentTime);
+      o.frequency.value = freq; o.type = "square"; // 倍音を含めて小型スピーカーでも抜けやすく
+      g.gain.setValueAtTime(.22, audio.currentTime);
       g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + ms / 1000);
       o.connect(g).connect(audio.destination);
       o.start(); o.stop(audio.currentTime + ms / 1000);
@@ -171,7 +171,7 @@
     fill.style.width = (100 - ms / (p.sec * 1000) * 100) + "%";
     if (secs !== lastShown) {
       lastShown = secs;
-      if (secs > 0 && secs <= 3) beep(660, 120);
+      if (secs > 0 && secs <= 3) beep(1760, 120);
     }
   }
 
@@ -181,7 +181,7 @@
     label.textContent = LABELS[p.type];
     roundEl.textContent = p.type === "prep" ? "まもなく開始" : `ラウンド ${p.round} / ${seq.rounds}`;
     lastShown = null;
-    beep(p.type === "work" ? 1000 : 500, 400);
+    beep(p.type === "work" ? 2640 : 1760, 400);
   }
 
   function tick() {
@@ -203,7 +203,7 @@
     timeEl.textContent = "0";
     roundEl.textContent = "おつかれさまでした!";
     fill.style.width = "100%";
-    beep(1200, 200); setTimeout(() => beep(1200, 200), 300); setTimeout(() => beep(1500, 500), 600);
+    beep(2093, 200); setTimeout(() => beep(2093, 200), 300); setTimeout(() => beep(2640, 500), 600);
     startBtn.textContent = "もう一度";
     idx = -1;
   }
